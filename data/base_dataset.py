@@ -20,7 +20,7 @@ class BaseDataset(data.Dataset, ABC):
     -- <modify_commandline_options>:    (optionally) add dataset-specific options and set default options.
     """
 
-    def __init__(self, opt):
+    def __init__(self, opt, a_paths, b_paths):
         """Initialize the class; save the options in the class
 
         Parameters:
@@ -28,6 +28,7 @@ class BaseDataset(data.Dataset, ABC):
         """
         self.opt = opt
         self.root = opt.dataroot
+        self.A_paths, self.B_paths = a_paths, b_paths
 
     @staticmethod
     def modify_commandline_options(parser, is_train):

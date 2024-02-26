@@ -19,8 +19,6 @@ See training and test tips at: https://github.com/junyanz/pytorch-CycleGAN-and-p
 See frequently asked questions at: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/docs/qa.md
 """
 import time
-from options.train_options import TrainOptions
-from data import create_dataset
 from models import create_model
 from util.visualizer import Visualizer
 
@@ -33,10 +31,11 @@ import torch
 
 class FlwrClient(fl.client.NumPyClient):
 
-    def __init__(self, opt):
+    def __init__(self, cid, opt, dataloader):
         self.opt = opt
-        self.dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
-        self.dataset_size = len(self.dataset)  # get the number of images in the dataset.
+        self.opt.cid = cid
+        self.dataloader = dataloader
+        self.dataset_size = len(self.dataloader)  # get the number of images in the dataset.
         print('The number of training images = %d' % self.dataset_size)
 
         self.model = create_model(opt)  # create a model given opt.model and other options
@@ -57,52 +56,55 @@ class FlwrClient(fl.client.NumPyClient):
         net_g_a_state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.model.netG_A.load_state_dict(net_g_a_state_dict, strict=True)
 
-        params_dict = zip(self.model.netG_B.state_dict().keys(), parameters[len_g_a_param:len_g_a_param + len_g_b_param])
+        params_dict = zip(self.model.netG_B.state_dict().keys(),
+                          parameters[len_g_a_param:len_g_a_param + len_g_b_param])
         net_g_b_state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.model.netG_B.load_state_dict(net_g_b_state_dict, strict=False)
 
         params_dict = zip(self.model.netD_A.state_dict().keys(), parameters[
-                                                            len_g_a_param + len_g_b_param:
-                                                            len_g_a_param + len_g_b_param + len_d_a_param])
+                                                                 len_g_a_param + len_g_b_param:
+                                                                 len_g_a_param + len_g_b_param + len_d_a_param])
         net_d_a_state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.model.netD_A.load_state_dict(net_d_a_state_dict, strict=False)
 
         params_dict = zip(self.model.netD_B.state_dict().keys(), parameters[
-                                                            len_g_a_param + len_g_b_param + len_d_a_param:])
+                                                                 len_g_a_param + len_g_b_param + len_d_a_param:])
         net_d_b_state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.model.netD_B.load_state_dict(net_d_b_state_dict, strict=False)
 
     def fit(self, parameters, config):
         self.set_parameters(parameters)
         total_iters = 0  # the total number of training iterations
-        for epoch in range(opt.epoch_count,
-                           opt.n_epochs + opt.n_epochs_decay + 1):  # outer loop for different epochs;
+        for epoch in range(self.opt.epoch_count,
+                           self.opt.n_epochs + self.opt.n_epochs_decay + 1):  # outer loop for different epochs;
             epoch_start_time = time.time()  # timer for entire epoch
             iter_data_time = time.time()  # timer for data loading per iteration
             epoch_iter = 0  # the number of training iterations in current epoch, reset to 0 every epoch
-            self.visualizer.reset()  # reset the visualizer: make sure it saves the results to HTML at least once every epoch
+            self.visualizer.reset()  # reset the visualizer: make sure it saves the results to HTML at least once
+            # every epoch
             self.model.update_learning_rate()  # update learning rates in the beginning of every epoch.
-            for _, data in enumerate(self.dataset):  # inner loop within one epoch
+            for data in self.dataloader:  # inner loop within one epoch
                 iter_start_time = time.time()  # timer for computation per iteration
-                if total_iters % opt.print_freq == 0:
+                if total_iters % self.opt.print_freq == 0:
                     t_data = iter_start_time - iter_data_time
 
-                total_iters += opt.batch_size
-                epoch_iter += opt.batch_size
+                total_iters += self.opt.batch_size
+                epoch_iter += self.opt.batch_size
                 self.model.set_input(data)  # unpack data from dataset and apply preprocessing
                 self.model.optimize_parameters()  # calculate loss functions, get gradients, update network weights
 
-                if total_iters % opt.display_freq == 0:  # display images on visdom and save images to a HTML file
-                    save_result = total_iters % opt.update_html_freq == 0
+                if total_iters % self.opt.display_freq == 0:  # display images on visdom and save images to a HTML file
+                    save_result = total_iters % self.opt.update_html_freq == 0
                     self.model.compute_visuals()
                     self.visualizer.display_current_results(self.model.get_current_visuals(), epoch, save_result)
 
-                if total_iters % opt.print_freq == 0:  # print training losses and save logging information to the disk
+                if total_iters % self.opt.print_freq == 0:  # print training losses and save logging information to
+                    # the disk
                     losses = self.model.get_current_losses()
-                    t_comp = (time.time() - iter_start_time) / opt.batch_size
+                    t_comp = (time.time() - iter_start_time) / self.opt.batch_size
                     metrics = self.model.get_eval_metrics()  # get metrics
                     self.visualizer.print_current_losses(epoch, epoch_iter, losses, t_comp, t_data, metrics)
-                    if opt.display_id > 0:
+                    if self.opt.display_id > 0:
                         self.visualizer.plot_current_losses(epoch, float(epoch_iter) / self.dataset_size, losses)
 
             #     if total_iters % opt.save_latest_freq == 0:  # cache our latest model every <save_latest_freq>
@@ -118,7 +120,7 @@ class FlwrClient(fl.client.NumPyClient):
             #     self.model.save_networks(epoch)
 
             print('End of epoch %d / %d \t Time Taken: %d sec' % (
-                epoch, opt.n_epochs + opt.n_epochs_decay, time.time() - epoch_start_time))
+                epoch, self.opt.n_epochs + self.opt.n_epochs_decay, time.time() - epoch_start_time))
 
         return self.get_parameters(config={}), self.dataset_size, {}
 
@@ -127,5 +129,18 @@ class FlwrClient(fl.client.NumPyClient):
         return float(1), 1, {}
 
 
-opt = TrainOptions().parse()  # get training options
-fl.client.start_client(server_address="localhost:8080", client=FlwrClient(opt).to_client())
+def generate_client_fn(opt, dataloader):
+    """Return a function that can be used by the VirtualClientEngine.
+    ti spawn a FlwrClient with client id 'cid'"""
+
+    def client_fn(cid: str):
+        # This function will be called internally by the VirtualClientEngine
+        # Each time the cid-th client is told to participate in the FL
+        # simulation (whether it is for doing fit() or evaluate())
+        return FlwrClient(
+            cid,
+            opt,
+            dataloader[int(cid)]
+        ).to_client()
+
+    return client_fn
