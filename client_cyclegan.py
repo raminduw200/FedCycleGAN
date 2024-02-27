@@ -1,0 +1,131 @@
+"""General-purpose training script for image-to-image translation.
+
+This script works for various models (with option '--model': e.g., pix2pix, cyclegan, colorization) and
+different datasets (with option '--dataset_mode': e.g., aligned, unaligned, single, colorization).
+You need to specify the dataset ('--dataroot'), experiment name ('--name'), and model ('--model').
+
+It first creates model, dataset, and visualizer given the option.
+It then does standard network training. During the training, it also visualize/save the images, print/save the loss plot, and save models.
+The script supports continue/resume training. Use '--continue_train' to resume your previous training.
+
+Example:
+    Train a CycleGAN model:
+        python train.py --dataroot ./datasets/maps --name maps_cyclegan --model cycle_gan
+    Train a pix2pix model:
+        python train.py --dataroot ./datasets/facades --name facades_pix2pix --model pix2pix --direction BtoA
+
+See options/base_options.py and options/train_options.py for more training options.
+See training and test tips at: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/docs/tips.md
+See frequently asked questions at: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/docs/qa.md
+"""
+import time
+from options.train_options import TrainOptions
+from data import create_dataset
+from models import create_model
+from util.visualizer import Visualizer
+
+import flwr as fl
+from collections import OrderedDict
+from typing import List
+import numpy as np
+import torch
+
+
+class FlwrClient(fl.client.NumPyClient):
+
+    def __init__(self, opt):
+        self.opt = opt
+        self.dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
+        self.dataset_size = len(self.dataset)  # get the number of images in the dataset.
+        print('The number of training images = %d' % self.dataset_size)
+
+        self.model = create_model(opt)  # create a model given opt.model and other options
+        self.model.setup(opt)
+        self.visualizer = Visualizer(opt)  # create a visualizer that display/save images and plots
+
+    def get_parameters(self, config) -> List[np.ndarray]:
+        return [val.cpu().numpy() for _, val in self.model.netG_A.state_dict().items()] + \
+            [val.cpu().numpy() for _, val in self.model.netG_B.state_dict().items()] + \
+            [val.cpu().numpy() for _, val in self.model.netD_A.state_dict().items()] + \
+            [val.cpu().numpy() for _, val in self.model.netD_B.state_dict().items()]
+
+    def set_parameters(self, parameters: List[np.ndarray]) -> None:
+        len_g_a_param = len([val.cpu().numpy() for _, val in self.model.netG_A.state_dict().items()])
+        len_g_b_param = len([val.cpu().numpy() for _, val in self.model.netG_B.state_dict().items()])
+        len_d_a_param = len([val.cpu().numpy() for _, val in self.model.netD_A.state_dict().items()])
+        params_dict = zip(self.model.netG_A.state_dict().keys(), parameters[:len_g_a_param])
+        net_g_a_state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+        self.model.netG_A.load_state_dict(net_g_a_state_dict, strict=True)
+
+        params_dict = zip(self.model.netG_B.state_dict().keys(), parameters[len_g_a_param:len_g_a_param + len_g_b_param])
+        net_g_b_state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+        self.model.netG_B.load_state_dict(net_g_b_state_dict, strict=False)
+
+        params_dict = zip(self.model.netD_A.state_dict().keys(), parameters[
+                                                            len_g_a_param + len_g_b_param:
+                                                            len_g_a_param + len_g_b_param + len_d_a_param])
+        net_d_a_state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+        self.model.netD_A.load_state_dict(net_d_a_state_dict, strict=False)
+
+        params_dict = zip(self.model.netD_B.state_dict().keys(), parameters[
+                                                            len_g_a_param + len_g_b_param + len_d_a_param:])
+        net_d_b_state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
+        self.model.netD_B.load_state_dict(net_d_b_state_dict, strict=False)
+
+    def fit(self, parameters, config):
+        self.set_parameters(parameters)
+        total_iters = 0  # the total number of training iterations
+        for epoch in range(opt.epoch_count,
+                           opt.n_epochs + opt.n_epochs_decay + 1):  # outer loop for different epochs;
+            epoch_start_time = time.time()  # timer for entire epoch
+            iter_data_time = time.time()  # timer for data loading per iteration
+            epoch_iter = 0  # the number of training iterations in current epoch, reset to 0 every epoch
+            self.visualizer.reset()  # reset the visualizer: make sure it saves the results to HTML at least once every epoch
+            self.model.update_learning_rate()  # update learning rates in the beginning of every epoch.
+            for _, data in enumerate(self.dataset):  # inner loop within one epoch
+                iter_start_time = time.time()  # timer for computation per iteration
+                if total_iters % opt.print_freq == 0:
+                    t_data = iter_start_time - iter_data_time
+
+                total_iters += opt.batch_size
+                epoch_iter += opt.batch_size
+                self.model.set_input(data)  # unpack data from dataset and apply preprocessing
+                self.model.optimize_parameters()  # calculate loss functions, get gradients, update network weights
+
+                if total_iters % opt.display_freq == 0:  # display images on visdom and save images to a HTML file
+                    save_result = total_iters % opt.update_html_freq == 0
+                    self.model.compute_visuals()
+                    self.visualizer.display_current_results(self.model.get_current_visuals(), epoch, save_result)
+
+                if total_iters % opt.print_freq == 0:  # print training losses and save logging information to the disk
+                    losses = self.model.get_current_losses()
+                    t_comp = (time.time() - iter_start_time) / opt.batch_size
+                    metrics = self.model.get_eval_metrics()  # get metrics
+                    self.visualizer.print_current_losses(epoch, epoch_iter, losses, t_comp, t_data, metrics)
+                    if opt.display_id > 0:
+                        self.visualizer.plot_current_losses(epoch, float(epoch_iter) / self.dataset_size, losses)
+
+            #     if total_iters % opt.save_latest_freq == 0:  # cache our latest model every <save_latest_freq>
+            #         # iterations
+            #         print('saving the latest model (epoch %d, total_iters %d)' % (epoch, total_iters))
+            #         save_suffix = 'iter_%d' % total_iters if opt.save_by_iter else 'latest'
+            #         self.model.save_networks(save_suffix)
+            #
+            #     iter_data_time = time.time()
+            # if epoch % opt.save_epoch_freq == 0:  # cache our model every <save_epoch_freq> epochs
+            #     print('saving the model at the end of epoch %d, iters %d' % (epoch, total_iters))
+            #     self.model.save_networks('latest')
+            #     self.model.save_networks(epoch)
+
+            print('End of epoch %d / %d \t Time Taken: %d sec' % (
+                epoch, opt.n_epochs + opt.n_epochs_decay, time.time() - epoch_start_time))
+
+        return self.get_parameters(config={}), self.dataset_size, {}
+
+    def evaluate(self, parameters, config):
+        # self.set_parameters(parameters)
+        return float(1), 1, {}
+
+
+opt = TrainOptions().parse()  # get training options
+fl.client.start_client(server_address="localhost:8080", client=FlwrClient(opt).to_client())
