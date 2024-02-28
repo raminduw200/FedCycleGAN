@@ -43,7 +43,7 @@ def main():
         # cfg.num_clients,  # total number of clients
         config=fl.server.ServerConfig(
             # num_rounds=cfg.num_rounds
-            num_rounds=opt.client_count
+            num_rounds=opt.fl_rounds
         ),  # minimal config for the server loop telling the number of rounds in FL
         strategy=strategy,  # our strategy of choice
         # client_resources={
