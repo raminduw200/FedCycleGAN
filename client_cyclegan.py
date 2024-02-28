@@ -107,17 +107,17 @@ class FlwrClient(fl.client.NumPyClient):
                     if self.opt.display_id > 0:
                         self.visualizer.plot_current_losses(epoch, float(epoch_iter) / self.dataset_size, losses)
 
-            #     if total_iters % opt.save_latest_freq == 0:  # cache our latest model every <save_latest_freq>
-            #         # iterations
-            #         print('saving the latest model (epoch %d, total_iters %d)' % (epoch, total_iters))
-            #         save_suffix = 'iter_%d' % total_iters if opt.save_by_iter else 'latest'
-            #         self.model.save_networks(save_suffix)
-            #
-            #     iter_data_time = time.time()
-            # if epoch % opt.save_epoch_freq == 0:  # cache our model every <save_epoch_freq> epochs
-            #     print('saving the model at the end of epoch %d, iters %d' % (epoch, total_iters))
-            #     self.model.save_networks('latest')
-            #     self.model.save_networks(epoch)
+                if total_iters % self.opt.save_latest_freq == 0:  # cache our latest model every <save_latest_freq>
+                    # iterations
+                    print('saving the latest model (epoch %d, total_iters %d)' % (epoch, total_iters))
+                    save_suffix = 'iter_%d' % total_iters if self.opt.save_by_iter else 'latest'
+                    self.model.save_networks(save_suffix)
+
+                iter_data_time = time.time()
+            if epoch % self.opt.save_epoch_freq == 0:  # cache our model every <save_epoch_freq> epochs
+                print('saving the model at the end of epoch %d, iters %d' % (epoch, total_iters))
+                self.model.save_networks('latest')
+                self.model.save_networks(epoch)
 
             print('End of epoch %d / %d \t Time Taken: %d sec' % (
                 epoch, self.opt.n_epochs + self.opt.n_epochs_decay, time.time() - epoch_start_time))
