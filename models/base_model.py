@@ -161,6 +161,7 @@ class BaseModel(ABC):
                     net.cuda(self.gpu_ids[0])
                 else:
                     torch.save(net.cpu().state_dict(), save_path)
+                    net.to('mps')
 
     def get_eval_metrics(self):
         """Return PSNR, SSIM and MAE"""
