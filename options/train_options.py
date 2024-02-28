@@ -20,7 +20,7 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--print_freq', type=int, default=100, help='frequency of showing training results on console')
         parser.add_argument('--no_html', action='store_true', help='do not save intermediate training results to [opt.checkpoints_dir]/[opt.name]/web/')
         # federated learning
-        parser.add_argument('--client_id', type=int, default=0, help='Client unique identifier (ith client)')
+        parser.add_argument('--cid', type=int, default=0, help='Client unique identifier (ith client)')
         # network saving and loading parameters
         parser.add_argument('--save_latest_freq', type=int, default=5000, help='frequency of saving the latest results')
         parser.add_argument('--save_epoch_freq', type=int, default=5, help='frequency of saving checkpoints at the end of epochs')

@@ -3,6 +3,7 @@ import os
 import sys
 import ntpath
 import time
+from datetime import datetime
 from . import util, html
 from subprocess import Popen, PIPE
 
@@ -91,12 +92,12 @@ class Visualizer():
             self.wandb_run._label(repo='CycleGAN-and-pix2pix')
 
         if self.use_html:  # create an HTML object at <checkpoints_dir>/web/; images will be saved under <checkpoints_dir>/web/images/
-            self.web_dir = os.path.join(opt.checkpoints_dir, opt.name, f"client_{opt.client_id}", 'web')
+            self.web_dir = os.path.join(opt.checkpoints_dir, opt.name, f"client_{opt.cid}", 'web')
             self.img_dir = os.path.join(self.web_dir, 'images')
             print('create web directory %s...' % self.web_dir)
             util.mkdirs([self.web_dir, self.img_dir])
         # create a logging file to store training losses
-        self.log_name = os.path.join(opt.checkpoints_dir, opt.name, f"client_{opt.client_id}", 'loss_log.txt')
+        self.log_name = os.path.join(opt.checkpoints_dir, opt.name, f"client_{opt.cid}", 'loss_log.txt')
         with open(self.log_name, "a") as log_file:
             now = time.strftime("%c")
             log_file.write('================ Training Loss (%s) ================\n' % now)
@@ -248,7 +249,8 @@ class Visualizer():
             t_comp (float) -- computational time per data point (normalized by batch_size)
             t_data (float) -- data loading time per data point (normalized by batch_size)
         """
-        message = '(epoch: %d, iters: %d, time: %.3f, data: %.3f) ' % (epoch, iters, t_comp, t_data)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        message = f"{timestamp}: (epoch: {epoch}, iters: {iters}, time: {t_comp:.3f}, data: {t_data:.3f})"
         for k, v in losses.items():
             message += '%s: %.3f ' % (k, v)
         if metrics is not None:

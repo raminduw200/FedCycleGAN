@@ -57,18 +57,19 @@ class FlwrClient(fl.client.NumPyClient):
         net_g_a_state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.model.netG_A.load_state_dict(net_g_a_state_dict, strict=True)
 
-        params_dict = zip(self.model.netG_B.state_dict().keys(), parameters[len_g_a_param:len_g_a_param + len_g_b_param])
+        params_dict = zip(self.model.netG_B.state_dict().keys(),
+                          parameters[len_g_a_param:len_g_a_param + len_g_b_param])
         net_g_b_state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.model.netG_B.load_state_dict(net_g_b_state_dict, strict=False)
 
         params_dict = zip(self.model.netD_A.state_dict().keys(), parameters[
-                                                            len_g_a_param + len_g_b_param:
-                                                            len_g_a_param + len_g_b_param + len_d_a_param])
+                                                                 len_g_a_param + len_g_b_param:
+                                                                 len_g_a_param + len_g_b_param + len_d_a_param])
         net_d_a_state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.model.netD_A.load_state_dict(net_d_a_state_dict, strict=False)
 
         params_dict = zip(self.model.netD_B.state_dict().keys(), parameters[
-                                                            len_g_a_param + len_g_b_param + len_d_a_param:])
+                                                                 len_g_a_param + len_g_b_param + len_d_a_param:])
         net_d_b_state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         self.model.netD_B.load_state_dict(net_d_b_state_dict, strict=False)
 
