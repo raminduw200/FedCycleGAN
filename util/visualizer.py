@@ -3,6 +3,7 @@ import os
 import sys
 import ntpath
 import time
+from datetime import datetime
 from . import util, html
 from subprocess import Popen, PIPE
 
@@ -248,7 +249,8 @@ class Visualizer():
             t_comp (float) -- computational time per data point (normalized by batch_size)
             t_data (float) -- data loading time per data point (normalized by batch_size)
         """
-        message = '(epoch: %d, iters: %d, time: %.3f, data: %.3f) ' % (epoch, iters, t_comp, t_data)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        message = f"{timestamp}: (epoch: {epoch}, iters: {iters}, time: {t_comp:.3f}, data: {t_data:.3f})"
         for k, v in losses.items():
             message += '%s: %.3f ' % (k, v)
         if metrics is not None:
