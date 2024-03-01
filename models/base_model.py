@@ -33,7 +33,14 @@ class BaseModel(ABC):
         self.opt = opt
         self.gpu_ids = opt.gpu_ids
         self.isTrain = opt.isTrain
-        self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if torch.cuda.is_available() else torch.device('mps')  # get device name: CPU or GPU
+        if torch.cuda.is_available():
+            torch.device('cuda:{}'.format(self.gpu_ids[0]))
+        elif torch.backends.mps.is_available():
+            self.device = torch.device('mps')
+        else:
+            self.device = torch.device('cpu')
+        # self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if torch.cuda.is_available() else
+        # torch.device('mps')  # get device name: M1 GPU or CUDA GPU
         self.save_dir = os.path.join(opt.checkpoints_dir, opt.name, f"client_{opt.cid}")  # save all the
         # checkpoints to save_dir
         if opt.preprocess != 'scale_width':  # with [scale_width], input images might have different sizes,
@@ -159,9 +166,11 @@ class BaseModel(ABC):
                 if len(self.gpu_ids) > 0 and torch.cuda.is_available():
                     torch.save(net.module.cpu().state_dict(), save_path)
                     net.cuda(self.gpu_ids[0])
-                else:
+                elif torch.backends.mps.is_available():
                     torch.save(net.cpu().state_dict(), save_path)
                     net.to('mps')
+                else:
+                    torch.save(net.cpu().state_dict(), save_path)
 
     def get_eval_metrics(self):
         """Return PSNR, SSIM and MAE"""
