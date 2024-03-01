@@ -260,3 +260,13 @@ class Visualizer():
         print(message)  # print the message
         with open(self.log_name, "a") as log_file:
             log_file.write('%s\n' % message)  # save the message
+
+    def print_epoch_log(self, epoch, epoch_duration):
+        """print the log of the current epoch"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        message = (f'{timestamp}: \n'
+                   f'--------------End of epoch {epoch} / {self.opt.n_epochs + self.opt.n_epochs_decay}--------------\n'
+                   f'--------------Time Taken: {epoch_duration} sec--------------')
+        print(message)
+        with open(self.log_name, "a") as log_file:
+            log_file.write('%s\n' % message)

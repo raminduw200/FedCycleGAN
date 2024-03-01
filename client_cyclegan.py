@@ -119,9 +119,7 @@ class FlwrClient(fl.client.NumPyClient):
                 self.model.save_networks('latest')
                 self.model.save_networks(epoch)
 
-            print('End of epoch %d / %d \t Time Taken: %d sec' % (
-                epoch, self.opt.n_epochs + self.opt.n_epochs_decay, time.time() - epoch_start_time))
-
+            self.visualizer.print_epoch_log(epoch, time.time() - epoch_start_time)
         return self.get_parameters(config={}), self.dataset_size, {}
 
     def evaluate(self, parameters, config):
