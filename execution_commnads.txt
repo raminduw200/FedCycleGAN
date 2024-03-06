@@ -1,0 +1,12 @@
+-------------------------- server client seperated --------------------------
+----------- server -----------
+python sever_cyclegan.py
+
+----------- client 1 -----------
+python client_cyclegan.py --dataroot /Users/raminduwalgama/Documents/Projects/FYP/datasets/zurichRAW_preprocessed/cropped/train_splitted/client_1 --name mobile_enhancement --model cycle_gan --cid 1 --n_epochs 1 --n_epochs_decay 1 --batch_size 1 --save_epoch_freq 1 --use_wandb --wandb_project_name FedCycleGAN
+
+----------- client 2 -----------
+python client_cyclegan.py --dataroot /Users/raminduwalgama/Documents/Projects/FYP/datasets/zurichRAW_preprocessed/cropped/train_splitted/client_2 --name mobile_enhancement --model cycle_gan --cid 2 --n_epochs 1 --n_epochs_decay 1 --batch_size 1 --save_epoch_freq 1 --use_wandb --wandb_project_name FedCycleGAN
+
+
+
