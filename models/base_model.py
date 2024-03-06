@@ -34,7 +34,7 @@ class BaseModel(ABC):
         self.gpu_ids = opt.gpu_ids
         self.isTrain = opt.isTrain
         if torch.cuda.is_available():
-            torch.device('cuda:{}'.format(self.gpu_ids[0]))
+            self.device = torch.device('cuda:{}'.format(self.gpu_ids[0]))
         elif torch.backends.mps.is_available():
             self.device = torch.device('mps')
         else:
