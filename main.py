@@ -46,10 +46,10 @@ def main():
             num_rounds=opt.fl_rounds
         ),  # minimal config for the server loop telling the number of rounds in FL
         strategy=strategy,  # our strategy of choice
-        # client_resources={
-        #     "num_cpus": 2,
-        #     "num_gpus": 0.0,
-        # },
+        client_resources={
+            # "num_cpus": 2,
+            "num_gpus": 0.5,
+        },
     )
 
     # results_path = Path(save_path) / "results.pkl"
