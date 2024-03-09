@@ -102,8 +102,7 @@ class FlwrClient(fl.client.NumPyClient):
                     # the disk
                     losses = self.model.get_current_losses()
                     t_comp = (time.time() - iter_start_time) / self.opt.batch_size
-                    metrics = self.model.get_eval_metrics()  # get metrics
-                    self.visualizer.print_current_losses(epoch, epoch_iter, losses, t_comp, t_data, metrics)
+                    self.visualizer.print_current_losses(epoch, epoch_iter, losses, t_comp, t_data)
                     if self.opt.display_id > 0:
                         self.visualizer.plot_current_losses(epoch, float(epoch_iter) / self.dataset_size, losses)
 

@@ -165,12 +165,12 @@ class BaseModel(ABC):
 
     def get_eval_metrics(self):
         """Return PSNR, SSIM and MAE"""
-        real_b = getattr(self, 'real_A')
-        fake_b = getattr(self, 'fake_B')
+        real_b = getattr(self, 'real_B')
+        fake_a = getattr(self, 'fake_A')
 
-        mae_value = mae(real_b, fake_b)
-        psnr_value = psnr(real_b, fake_b)
-        ssim_value = ssim(real_b, fake_b)
+        mae_value = mae(real_b, fake_a)
+        psnr_value = psnr(real_b, fake_a)
+        ssim_value = ssim(real_b, fake_a)
         result = {"MAE": f"{mae_value:.5f}", "PSNR": f"{psnr_value:.5f}", "SSIM": f"{ssim_value:.5f}", "comparison": f"real_A -> fake_B"}
         print(f"MAE: {mae_value:.5f}, PSNR: {psnr_value:.5f}, SSIM: {ssim_value:.5f}")
 

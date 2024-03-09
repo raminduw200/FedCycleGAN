@@ -1,3 +1,6 @@
 -------------------------- server client seperated --------------------------
 ----------- main -----------
 python client_cyclegan.py --dataroot /home/ramindu/Documents/full-single-client/train --name mobile_enhancement --model cycle_gan --client_count 2 --n_epochs 3 --n_epochs_decay 3 --batch_size 2 --save_epoch_freq 1 --fl_rounds 10 --use_wandb --wandb_project_name FedCycleGAN-2
+
+current config
+python main.py --dataroot /home/ramindu/Documents/full-single-client/train --name RTX-3080 --model cycle_gan --client_count 2 --n_epochs 3 --n_epochs_decay 3 --batch_size 1 --save_epoch_freq 1 --fl_rounds 10 --use_wandb --wandb_project_name FedCycleGAN-2 --display_id 0
