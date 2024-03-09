@@ -239,7 +239,7 @@ class Visualizer():
             self.wandb_run.log(losses)
 
     # losses: same format as |losses| of plot_current_losses
-    def print_current_losses(self, epoch, iters, losses, t_comp, t_data, metrics=None):
+    def print_current_losses(self, epoch, iters, losses, t_comp, t_data):
         """print current losses on console; also save the losses to the disk
 
         Parameters:
@@ -253,10 +253,6 @@ class Visualizer():
         message = f"{timestamp}: (epoch: {epoch}, iters: {iters}, time: {t_comp:.3f}, data: {t_data:.3f})"
         for k, v in losses.items():
             message += '%s: %.3f ' % (k, v)
-        if metrics is not None:
-            message += '\nMetrics: '
-            for k, v in metrics.items():
-                message += '%s: %s ' % (k, v)
         print(message)  # print the message
         with open(self.log_name, "a") as log_file:
             log_file.write('%s\n' % message)  # save the message
