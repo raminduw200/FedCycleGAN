@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 from . import networks
 from util.metrics import mae, psnr, ssim
 
-
 class BaseModel(ABC):
     """This class is an abstract base class (ABC) for models.
     To create a subclass, you need to implement the following five functions:
@@ -174,14 +173,27 @@ class BaseModel(ABC):
 
     def get_eval_metrics(self):
         """Return PSNR, SSIM and MAE"""
-        real_b = getattr(self, 'real_A')
+        real_a = getattr(self, 'real_B')
         fake_b = getattr(self, 'fake_B')
 
-        mae_value = mae(real_b, fake_b)
-        psnr_value = psnr(real_b, fake_b)
-        ssim_value = ssim(real_b, fake_b)
+        mae_value = mae(fake_b, real_a)
+        psnr_value = psnr(fake_b, real_a)
+        ssim_value = ssim(fake_b, real_a)
         result = {"MAE": f"{mae_value:.5f}", "PSNR": f"{psnr_value:.5f}", "SSIM": f"{ssim_value:.5f}", "comparison": f"real_A -> fake_B"}
-        print(f"MAE: {mae_value:.5f}, PSNR: {psnr_value:.5f}, SSIM: {ssim_value:.5f}")
+
+        ## compare images visually with metrics values
+        # import matplotlib.pyplot as plt
+        # from util.util import tensor2im
+        # fig, axes = plt.subplots(1, 2)
+        # axes[0].imshow(tensor2im(real_a))
+        # axes[0].set_title('Real A')
+        # axes[0].axis('off')
+        # axes[1].imshow(tensor2im(fake_b))
+        # axes[1].set_title('Fake B')
+        # axes[1].axis('off')
+        # axes[0].text(0, -0.2, '\n'.join(f"{key}: {value}" for key, value in result.items()),
+        #              transform=axes[0].transAxes, fontsize=10, va='top')
+        # plt.show()
 
         return result
 
