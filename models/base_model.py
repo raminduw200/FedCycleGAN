@@ -176,12 +176,12 @@ class BaseModel(ABC):
         real_a = getattr(self, 'real_B')
         fake_b = getattr(self, 'fake_B')
 
-        mae_value = mae(fake_b, real_a)
-        psnr_value = psnr(fake_b, real_a)
-        ssim_value = ssim(fake_b, real_a)
-        result = {"MAE": f"{mae_value:.5f}", "PSNR": f"{psnr_value:.5f}", "SSIM": f"{ssim_value:.5f}", "comparison": f"real_A -> fake_B"}
+        mae_value = mae(fake_b, real_a).item()
+        psnr_value = psnr(fake_b, real_a).item()
+        ssim_value = ssim(fake_b, real_a).item()
+        result = {"MAE": round(mae_value, 5), "PSNR": round(psnr_value, 5), "SSIM": round(ssim_value, 5)}
 
-        ## compare images visually with metrics values
+        # # compare images visually with metrics values
         # import matplotlib.pyplot as plt
         # from util.util import tensor2im
         # fig, axes = plt.subplots(1, 2)
