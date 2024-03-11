@@ -85,7 +85,7 @@ if __name__ == '__main__':
         if i % 5 == 0:  # save images to an HTML file
             print('processing (%04d)-th image... %s' % (i, img_path))
         save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize,
-                    use_wandb=opt.use_wandb)
+                    use_wandb=opt.use_wandb, metrics=metrics)
     webpage.save()  # save the HTML
     eval_metrics_avg = {key: value / opt.num_test for key, value in eval_metrics_avg.items()}
     print(f'Average metrics: {eval_metrics_avg}')

@@ -19,7 +19,7 @@ else:
     VisdomExceptionBase = ConnectionError
 
 
-def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, use_wandb=False):
+def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, use_wandb=False, metrics=None):
     """Save images to the disk.
 
     Parameters:
@@ -28,6 +28,8 @@ def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, use_w
         image_path (str)         -- the string is used to create image paths
         aspect_ratio (float)     -- the aspect ratio of saved images
         width (int)              -- the images will be resized to width x width
+        use_wandb (bool)         -- if specified, then log images to wandb
+        metrics (dict)           -- the metrics to be added as a row in the table
 
     This function will save images stored in 'visuals' to the HTML file specified by 'webpage'.
     """
@@ -48,7 +50,7 @@ def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, use_w
         links.append(image_name)
         if use_wandb:
             ims_dict[label] = wandb.Image(im)
-    webpage.add_images(ims, txts, links, width=width)
+    webpage.add_images(ims, txts, links, metrics=metrics, width=width)
     if use_wandb:
         wandb.log(ims_dict)
 
