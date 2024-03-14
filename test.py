@@ -51,6 +51,7 @@ if __name__ == '__main__':
     model = create_model(opt)      # create a model given opt.model and other options
     model.setup(opt)               # regular setup: load and print networks; create schedulers
     eval_metrics_avg = {}          # initialize average metrics
+    test_len = 0
 
     # initialize logger
     if opt.use_wandb:
@@ -86,6 +87,7 @@ if __name__ == '__main__':
             print('processing (%04d)-th image... %s' % (i, img_path))
         save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize,
                     use_wandb=opt.use_wandb, metrics=metrics)
+        test_len += 1
     webpage.save()  # save the HTML
-    eval_metrics_avg = {key: value / opt.num_test for key, value in eval_metrics_avg.items()}
+    eval_metrics_avg = {key: value / test_len for key, value in eval_metrics_avg.items()}
     print(f'Average metrics: {eval_metrics_avg}')

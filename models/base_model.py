@@ -93,7 +93,7 @@ class BaseModel(ABC):
         if self.isTrain:
             self.schedulers = [networks.get_scheduler(optimizer, opt) for optimizer in self.optimizers]
         if not self.isTrain or opt.continue_train:
-            load_suffix = 'iter_%d' % opt.load_iter if opt.load_iter > 0 else opt.epoch
+            load_suffix = '%d' % opt.load_iter if opt.load_iter > 0 else opt.epoch
             self.load_networks(load_suffix)
         self.print_networks(opt.verbose)
 
@@ -175,25 +175,18 @@ class BaseModel(ABC):
         """Return PSNR, SSIM and MAE"""
         real_a = getattr(self, 'real_B')
         fake_b = getattr(self, 'fake_B')
+        real_b = getattr(self, 'real_B')
 
-        mae_value = mae(fake_b, real_a).item()
-        psnr_value = psnr(fake_b, real_a).item()
-        ssim_value = ssim(fake_b, real_a).item()
+        # # Reshape the image to match the model's input size
+        # real_b = torch.nn.functional.interpolate(real_b, size=(2976, 3968), mode='bilinear', align_corners=False)
+        # fake_b = torch.nn.functional.interpolate(fake_b, size=(2976, 3968), mode='bilinear', align_corners=False)
+        mae_value = mae(real_b, fake_b).item()
+        psnr_value = psnr(real_b, fake_b).item()
+        ssim_value = ssim(real_b, fake_b).item()
         result = {"MAE": round(mae_value, 5), "PSNR": round(psnr_value, 5), "SSIM": round(ssim_value, 5)}
 
-        # # compare images visually with metrics values
-        # import matplotlib.pyplot as plt
-        # from util.util import tensor2im
-        # fig, axes = plt.subplots(1, 2)
-        # axes[0].imshow(tensor2im(real_a))
-        # axes[0].set_title('Real A')
-        # axes[0].axis('off')
-        # axes[1].imshow(tensor2im(fake_b))
-        # axes[1].set_title('Fake B')
-        # axes[1].axis('off')
-        # axes[0].text(0, -0.2, '\n'.join(f"{key}: {value}" for key, value in result.items()),
-        #              transform=axes[0].transAxes, fontsize=10, va='top')
-        # plt.show()
+        # from util.visualizer import Visualizer
+        # Visualizer.plot_current_tensors(real_b, fake_b)
 
         return result
 

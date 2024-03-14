@@ -15,7 +15,7 @@ def mae(image_true, image_generated):
     return torch.abs(image_true - image_generated).mean()
 
 
-def psnr(image_true, image_generated):
+def psnr(image_true, image_generated, max_value=1.0):
     """"Compute peak signal-to-noise ratio.
 
     Args:
@@ -25,7 +25,9 @@ def psnr(image_true, image_generated):
     Returns:
         psnr: (float) peak signal-to-noise ratio"""
     mse = ((image_true - image_generated) ** 2).mean().detach().cpu().numpy()
-    return -10 * np.log10(mse)
+    if mse == 0:
+        return 100
+    return 20 * np.log10(max_value / (np.sqrt(mse)))
 
 
 def ssim(image_true, image_generated, C1=0.01, C2=0.03):
@@ -44,7 +46,7 @@ def ssim(image_true, image_generated, C1=0.01, C2=0.03):
     std_true = image_true.std()
     std_generated = image_generated.std()
     covariance = (
-        (image_true - mean_true) * (image_generated - mean_generated)).mean()
+            (image_true - mean_true) * (image_generated - mean_generated)).mean()
 
     numerator = (2 * mean_true * mean_generated + C1) * (2 * covariance + C2)
     denominator = ((mean_true ** 2 + mean_generated ** 2 + C1) *
