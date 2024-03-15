@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 
+import torch.nn.functional as F
 
 def mae(image_true, image_generated):
     """Compute mean absolute error.
@@ -53,3 +54,58 @@ def ssim(image_true, image_generated, C1=0.01, C2=0.03):
                    (std_true ** 2 + std_generated ** 2 + C2))
     return numerator / denominator
 
+
+def ssim_loss(image_true, image_generated):
+    """Compute mean structural similarity index.
+
+    Args:
+        image_true: (Tensor) true image
+        image_generated: (Tensor) generated image
+
+    Returns:
+        mssim: (float) mean squared error"""
+    return 1 - ssim(image_true, image_generated)
+
+# from torchvision.models import vgg19
+
+# def vgg19_loss(image_true, image_generated):
+#     """Compute VGG loss.
+#
+#     Args:
+#         image_true: (Tensor) true image
+#         image_generated: (Tensor) generated image
+#
+#     Returns:
+#         vgg_loss: (float) VGG loss"""
+#     vgg_model = vgg19(pretrained=True).features.eval()
+#     return torch.nn.functional.mse_loss(vgg_model(image_true), vgg_model(image_generated))
+
+
+import torch
+import torch.nn as nn
+from torchvision import models
+
+
+class VGG19(nn.Module):
+    def __init__(self):
+        super(VGG19, self).__init__()
+        features = list(models.vgg19(pretrained=True).features)[:36]
+        self.features = nn.ModuleList(features).eval()
+
+    def forward(self, x):
+        results = []
+        for ii, model in enumerate(self.features):
+            x = model(x)
+            if ii in {1, 6, 11, 20, 29}:
+                results.append(x)
+        return results
+
+
+def loss_fn_vgg_ssim(y_true, y_pred, vgg):
+    # Content loss
+    y_true_vgg = vgg(y_true * 255)
+    y_pred_vgg = vgg(y_pred * 255)
+
+    loss_content = mae(y_pred_vgg[4], y_true_vgg[4])
+    # Final loss function
+    return loss_content

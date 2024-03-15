@@ -173,7 +173,6 @@ class BaseModel(ABC):
 
     def get_eval_metrics(self):
         """Return PSNR, SSIM and MAE"""
-        real_a = getattr(self, 'real_B')
         fake_b = getattr(self, 'fake_B')
         real_b = getattr(self, 'real_B')
 
