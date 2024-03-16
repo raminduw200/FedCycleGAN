@@ -3,7 +3,6 @@ import torch.nn as nn
 from torch.nn import init
 import functools
 from torch.optim import lr_scheduler
-# import F from torch
 from torch.nn import functional as F
 
 
@@ -166,7 +165,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     elif netG == 'unet_256':
         net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
     elif netG == 'improved_unet':
-        net = ImprovedUnetGenerator(input_nc, output_nc)
+        net = ImprovedUNetGenerator(input_nc, output_nc, 6)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
     print(net)
@@ -557,147 +556,114 @@ class UnetSkipConnectionBlock(nn.Module):
             return torch.cat([x, self.model(x)], 1)
 
 
-class AdaptiveInstanceNorm2d(nn.Module):
-    def __init__(self):
-        super(AdaptiveInstanceNorm2d, self).__init__()
-        self.feature_extractor = None
-
-    def forward(self, x, y):
-        """
-        Adaptive Instance Normalization with feature extraction and size matching
-
-        Args:
-            x: Input feature map (of shape [batch_size, channels, height, width])
-            y: Style feature map (of shape [batch_size, channels_y, height_y, width_y])
-
-        Returns:
-            Normalized feature map with adapted style from y
-        """
-
-        if self.feature_extractor is None:
-            self.feature_extractor = nn.Conv2d(in_channels=x.shape[1], out_channels=x.shape[1], kernel_size=1)
-
-        # Extract features from y to match x's shape
-        y_features = self.feature_extractor(y)
-
-        # Apply adaptive instance normalization
-        y_mean = torch.mean(y_features, dim=1, keepdim=True)
-        y_std = torch.std(y_features, dim=1, keepdim=True) + 1e-8
-        x_normalized = (x - torch.mean(x, dim=1, keepdim=True)) / torch.std(x, dim=1, keepdim=True) + 1e-8
-        return x_normalized * y_std + y_mean
-
-
-class MultiScaleConv(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(MultiScaleConv, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1)
-        self.conv3 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
-        self.conv5 = nn.Conv2d(in_channels, out_channels, kernel_size=5, padding=2)
-        self.conv7 = nn.Conv2d(in_channels, out_channels, kernel_size=7, padding=3)
+class AdaIN(nn.Module):
+    def __init__(self, channels):
+        super(AdaIN, self).__init__()
+        self.channels = channels
 
     def forward(self, x):
-        out1 = self.conv1(x)
-        out3 = self.conv3(x)
-        out5 = self.conv5(x)
-        out7 = self.conv7(x)
-        return torch.cat([out1, out3, out5, out7], dim=1)
+        # Calculate mean and standard deviation along the spatial dimensions
+        mean_x = torch.mean(x, dim=(2, 3), keepdim=True)
+        std_x = torch.std(x, dim=(2, 3), keepdim=True) + 1e-8  # Add epsilon for numerical stability
+
+        # Normalize x
+        x_normalized = (x - mean_x) / std_x
+
+        return x_normalized
 
 
-class DownSample(nn.Module):
+class MultiScaleConvModule(nn.Module):
     def __init__(self, in_channels, out_channels):
-        super(DownSample, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
-        self.norm = nn.InstanceNorm2d(out_channels)
+        super(MultiScaleConvModule, self).__init__()
+        self.conv1x1 = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        self.conv3x3 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.conv5x5 = nn.Conv2d(in_channels, out_channels, kernel_size=5, padding=2)
+        self.conv7x7 = nn.Conv2d(in_channels, out_channels, kernel_size=7, padding=3)
+        self.adain = AdaIN(out_channels)
+
+    def forward(self, x):
+        out1x1 = F.relu(self.adain(self.conv1x1(x)))
+        out3x3 = F.relu(self.adain(self.conv3x3(x)))
+        out5x5 = F.relu(self.adain(self.conv5x5(x)))
+        out7x7 = F.relu(self.adain(self.conv7x7(x)))
+        return torch.cat([out1x1, out3x3, out5x5, out7x7], dim=1)
+
+
+class DownSamplingModule(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(DownSamplingModule, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=2, padding=2)
+        self.adain = AdaIN(out_channels)
         self.relu = nn.ReLU(inplace=True)
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=1)
 
     def forward(self, x):
-        x = self.pool(x)
-        x = self.norm(x)
-        x = self.relu(x)
-        x = self.conv(x)
+        x = self.pool(self.relu(self.adain(self.conv(x))))
         return x
 
 
 class ResidualBlock(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self, channels):
         super(ResidualBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, in_channels, kernel_size=3, padding=1)
-        self.norm1 = nn.InstanceNorm2d(in_channels)
-        self.relu1 = nn.ReLU(inplace=True)
+        self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
+        self.adain1 = AdaIN(channels)
+        self.adain2 = AdaIN(channels)
 
     def forward(self, x):
         residual = x
-        x = self.conv1(x)
-        x = self.norm1(x)
-        x = self.relu1(x)
-        return x + residual
+        out = F.relu(self.adain1(self.conv1(x)))
+        out = self.adain2(self.conv2(out))
+        out += residual
+        return out
 
 
-class UpSample(nn.Module):
-  def __init__(self, in_channels, out_channels):
-    super(UpSample, self).__init__()
-    self.up = nn.Sequential(
-        nn.Upsample(scale_factor=2, mode='nearest'),
-        nn.Conv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
-        nn.InstanceNorm2d(in_channels),
-        nn.ReLU(inplace=True)
-    )
-    self.conv = nn.Conv2d(in_channels * 2, out_channels, kernel_size=3, padding=1)  # Modified for concatenated channels
-
-  def forward(self, x, skip): # x: Tensor([1, 256, 32, 32]), skip: Tensor([1, 256, 64, 64])
-    x = self.up(x)  # Tensor([1, 256, 64, 64])
-
-    # Crop and concatenate skip connection with upsampled x
-    skip = skip[:, :, : x.size(2), : x.size(3)] # Tensor([1, 256, 64, 64])
-    x = torch.cat([x, skip], dim=1) # (1, 512, 64, 64) which needs to be (1, 512, 64, 64)
-
-    x = self.conv(x)  # Tensor([1, 128, 64, 64])
-    return x
-
-
-class ImprovedUnetGenerator(nn.Module):
+class UpSampleAdaIN(nn.Module):
     def __init__(self, in_channels, out_channels):
-        super(ImprovedUnetGenerator, self).__init__()
+        super(UpSampleAdaIN, self).__init__()
+        self.conv_transpose = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.adain = AdaIN(out_channels)
+
+    def forward(self, x):
+        x = F.relu(self.adain(self.conv_transpose(x)))
+        return x
+
+
+class UpSamplingModule(nn.Module):
+    def __init__(self, in_channels, out_channels, scale_factor=2, mode='nearest'):
+        super(UpSamplingModule, self).__init__()
+        self.upsample = nn.Upsample(scale_factor=scale_factor, mode=mode)
+        # TODO: Use Conv 3x3 step 2
+    def forward(self, x, skip):  # x: Tensor([1, 512, 32, 32]), skip: Tensor([1, 256, 64, 64])
+        x = self.upsample(x)
+        x = torch.cat([x, skip], dim=1)  # (1, 512, 64, 64)
+        return x
+
+
+class ImprovedUNetGenerator(nn.Module):
+    def __init__(self, in_channels, out_channels, num_residual_blocks):
+        super(ImprovedUNetGenerator, self).__init__()
 
         # Encoder
-        self.enc_conv1 = MultiScaleConv(in_channels, 16)
-        self.enc_conv2 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)  # New layer for channel doubling
-        self.enc_down1 = DownSample(64, 128)  # Corrected input channels
-        self.enc_conv3 = nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1)  # New layer
-        self.enc_down2 = DownSample(128, 256)  # Doubled output channels
-        self.enc_conv4 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)  # New layer
-        self.enc_down3 = DownSample(256, 512)  # Doubled output channels
+        self.enc_conv1 = MultiScaleConvModule(in_channels, 16)
+        self.enc_down1 = DownSamplingModule(64, 128)
+        self.enc_down2 = DownSamplingModule(128, 256)
+        self.enc_down3 = DownSamplingModule(256, 512)
 
         # Transcoder
-        self.transcoder = nn.Sequential(*[
-            nn.Conv2d(512, 32, kernel_size=3, stride=1, padding=1),  # Initial conv for channel reduction
-            ResidualBlock(32),
-            nn.InstanceNorm2d(32),
-            ResidualBlock(32),
-            nn.InstanceNorm2d(32),
-            ResidualBlock(32),
-            nn.InstanceNorm2d(32),
-            ResidualBlock(32),
-            nn.InstanceNorm2d(32),
-            ResidualBlock(32),
-            nn.InstanceNorm2d(32),
-            ResidualBlock(32),
-            nn.InstanceNorm2d(32),
-        ])
-        self.relu = nn.ReLU(inplace=True)
-        self.conv = nn.Conv2d(32, 256, kernel_size=3, padding=1)
-
-        # Decoder
-        self.dec_up1 = UpSample(256, 128)
-        self.dec_up2 = UpSample(128, 64)
-        self.dec_up3 = UpSample(64, 128)  # Modified to output 512 channels
-        self.dec_conv2 = nn.Sequential(
-            nn.InstanceNorm2d(128),  # Instance normalization before 3x3 convolution
-            nn.Conv2d(128, 64, kernel_size=3, padding=1)  # 3x3 convolution to reduce channels
+        self.transcoder = nn.Sequential(
+            *[ResidualBlock(512) for _ in range(num_residual_blocks)]
         )
 
-        self.dec_conv1 = nn.Conv2d(64, out_channels, kernel_size=3, padding=1)  # Final convolution
+        # Decoder
+        self.dec_up_adain1 = UpSampleAdaIN(512, 256)
+        self.dec_up1 = UpSamplingModule(256, 512)
+        self.dec_up_adain2 = UpSampleAdaIN(512, 128)
+        self.dec_up2 = UpSamplingModule(128, 256)
+        self.dec_up_adain3 = UpSampleAdaIN(256, 64)
+        self.dec_up3 = UpSamplingModule(64, 128)
+        self.dec_up_adain4 = UpSampleAdaIN(128, 64)
+        self.dec_conv = nn.Conv2d(64, out_channels, kernel_size=3, padding=1)
 
     def forward(self, x):
         # Encoder
@@ -707,32 +673,19 @@ class ImprovedUnetGenerator(nn.Module):
         x4 = self.enc_down3(x3)  # Tensor([1, 512, 32, 32])
 
         # Transcoder
-        x = self.transcoder(x4)  # Tensor([1, 32, 32, 32])
-        x = self.conv(x)  # Tensor([1, 256, 32, 32])
+        x = self.transcoder(x4)  # Tensor([1, 512, 32, 32])
 
         # Decoder
-        x = self.dec_up1(x, x3) # Tensor([1, 128, 64, 64])
-        x = self.dec_up2(x, x2) # Tensor([1, 64, 128, 128])
-        x = self.dec_up3(x, x1) # Tensor([1, 128, 256, 256])
-        x = self.dec_conv2(x) # Tensor([1, 64, 256, 256])
-        x = self.dec_conv1(x) # Tensor([1, 3, 256, 256])
+        x = self.dec_up_adain1(x)  # Tensor([1, 256, 32, 32])
+        x = self.dec_up1(x, x3)  # Tensor([1, 512, 64, 64])
+        x = self.dec_up_adain2(x)  # Tensor([1, 128, 64, 64])
+        x = self.dec_up2(x, x2)  # Tensor([1, 256, 128, 128])
+        x = self.dec_up_adain3(x)  # Tensor([1, 64, 128, 128])
+        x = self.dec_up3(x, x1)  # Tensor([1, 128, 256, 256])
+        x = self.dec_up_adain4(x)  # Tensor([1, 64, 256, 256])
+        x = self.dec_conv(x)  # Tensor([1, 3, 256, 256])
         return x
 
-
-# class AdaINNorm(nn.Module):
-#   def __init__(self, in_channels):
-#     super(AdaINNorm, self).__init__()
-#     self.linear_gamma = nn.Linear(in_channels, in_channels)
-#     self.linear_beta = nn.Linear(in_channels, in_channels)
-#
-#   def forward(self, x, style):
-#     gamma = self.linear_gamma(style)  # Calculate scaling factors
-#     beta = self.linear_beta(style)   # Calculate shift factors
-#     # Reshape gamma and beta to match feature map dimensions
-#     gamma = gamma.unsqueeze(2).unsqueeze(3)
-#     beta = beta.unsqueeze(2).unsqueeze(3)
-#     # Apply AdaIN
-#     return x * (gamma + 1.) + beta
 
 class NLayerDiscriminator(nn.Module):
     """Defines a PatchGAN discriminator"""
