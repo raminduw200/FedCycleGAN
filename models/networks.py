@@ -168,7 +168,6 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
         net = ImprovedUNetGenerator(input_nc, output_nc, 6)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
-    print(net)
     return init_net(net, init_type, init_gain, gpu_ids)
 
 
@@ -579,7 +578,7 @@ class MultiScaleConvModule(nn.Module):
         self.conv3x3 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
         self.conv5x5 = nn.Conv2d(in_channels, out_channels, kernel_size=5, padding=2)
         self.conv7x7 = nn.Conv2d(in_channels, out_channels, kernel_size=7, padding=3)
-        self.adain = AdaIN(out_channels)
+        self.adain = nn.InstanceNorm2d(out_channels)
 
     def forward(self, x):
         out1x1 = F.relu(self.adain(self.conv1x1(x)))
@@ -593,7 +592,7 @@ class DownSamplingModule(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DownSamplingModule, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=2, padding=2)
-        self.adain = AdaIN(out_channels)
+        self.adain = nn.InstanceNorm2d(out_channels)
         self.relu = nn.ReLU(inplace=True)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=1)
 
@@ -607,8 +606,8 @@ class ResidualBlock(nn.Module):
         super(ResidualBlock, self).__init__()
         self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
-        self.adain1 = AdaIN(channels)
-        self.adain2 = AdaIN(channels)
+        self.adain1 = nn.InstanceNorm2d(channels)
+        self.adain2 = nn.InstanceNorm2d(channels)
 
     def forward(self, x):
         residual = x
@@ -622,7 +621,7 @@ class UpSampleAdaIN(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(UpSampleAdaIN, self).__init__()
         self.conv_transpose = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
-        self.adain = AdaIN(out_channels)
+        self.adain = nn.InstanceNorm2d(out_channels)
 
     def forward(self, x):
         x = F.relu(self.adain(self.conv_transpose(x)))
@@ -633,7 +632,7 @@ class UpSamplingModule(nn.Module):
     def __init__(self, in_channels, out_channels, scale_factor=2, mode='nearest'):
         super(UpSamplingModule, self).__init__()
         self.upsample = nn.Upsample(scale_factor=scale_factor, mode=mode)
-        # TODO: Use Conv 3x3 step 2
+
     def forward(self, x, skip):  # x: Tensor([1, 512, 32, 32]), skip: Tensor([1, 256, 64, 64])
         x = self.upsample(x)
         x = torch.cat([x, skip], dim=1)  # (1, 512, 64, 64)

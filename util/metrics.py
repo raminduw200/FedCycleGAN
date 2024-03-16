@@ -1,7 +1,9 @@
 import torch
 import numpy as np
-
+import torch.nn as nn
+from torchvision import models
 import torch.nn.functional as F
+
 
 def mae(image_true, image_generated):
     """Compute mean absolute error.
@@ -65,25 +67,6 @@ def ssim_loss(image_true, image_generated):
     Returns:
         mssim: (float) mean squared error"""
     return 1 - ssim(image_true, image_generated)
-
-# from torchvision.models import vgg19
-
-# def vgg19_loss(image_true, image_generated):
-#     """Compute VGG loss.
-#
-#     Args:
-#         image_true: (Tensor) true image
-#         image_generated: (Tensor) generated image
-#
-#     Returns:
-#         vgg_loss: (float) VGG loss"""
-#     vgg_model = vgg19(pretrained=True).features.eval()
-#     return torch.nn.functional.mse_loss(vgg_model(image_true), vgg_model(image_generated))
-
-
-import torch
-import torch.nn as nn
-from torchvision import models
 
 
 class VGG19(nn.Module):
