@@ -50,6 +50,7 @@ def main():
             # "num_cpus": 2,
             "num_gpus": 0.5,
         },
+        # ray_init_args={'num_gpus': 2}
     )
 
     # results_path = Path(save_path) / "results.pkl"

@@ -1,5 +1,8 @@
 import torch
 import numpy as np
+import torch.nn as nn
+from torchvision import models
+import torch.nn.functional as F
 
 
 def mae(image_true, image_generated):
@@ -15,7 +18,7 @@ def mae(image_true, image_generated):
     return torch.abs(image_true - image_generated).mean()
 
 
-def psnr(image_true, image_generated):
+def psnr(image_true, image_generated, max_value=1.0):
     """"Compute peak signal-to-noise ratio.
 
     Args:
@@ -25,7 +28,9 @@ def psnr(image_true, image_generated):
     Returns:
         psnr: (float) peak signal-to-noise ratio"""
     mse = ((image_true - image_generated) ** 2).mean().detach().cpu().numpy()
-    return -10 * np.log10(mse)
+    if mse == 0:
+        return 100
+    return 20 * np.log10(max_value / (np.sqrt(mse)))
 
 
 def ssim(image_true, image_generated, C1=0.01, C2=0.03):
@@ -44,10 +49,46 @@ def ssim(image_true, image_generated, C1=0.01, C2=0.03):
     std_true = image_true.std()
     std_generated = image_generated.std()
     covariance = (
-        (image_true - mean_true) * (image_generated - mean_generated)).mean()
+            (image_true - mean_true) * (image_generated - mean_generated)).mean()
 
     numerator = (2 * mean_true * mean_generated + C1) * (2 * covariance + C2)
     denominator = ((mean_true ** 2 + mean_generated ** 2 + C1) *
                    (std_true ** 2 + std_generated ** 2 + C2))
     return numerator / denominator
 
+
+def ssim_loss(image_true, image_generated):
+    """Compute mean structural similarity index.
+
+    Args:
+        image_true: (Tensor) true image
+        image_generated: (Tensor) generated image
+
+    Returns:
+        mssim: (float) mean squared error"""
+    return 1 - ssim(image_true, image_generated)
+
+
+class VGG19(nn.Module):
+    def __init__(self):
+        super(VGG19, self).__init__()
+        features = list(models.vgg19(pretrained=True).features)[:36]
+        self.features = nn.ModuleList(features).eval()
+
+    def forward(self, x):
+        results = []
+        for ii, model in enumerate(self.features):
+            x = model(x)
+            if ii in {1, 6, 11, 20, 29}:
+                results.append(x)
+        return results
+
+
+def loss_fn_vgg_ssim(y_true, y_pred, vgg):
+    # Content loss
+    y_true_vgg = vgg(y_true * 255)
+    y_pred_vgg = vgg(y_pred * 255)
+
+    loss_content = mae(y_pred_vgg[4], y_true_vgg[4])
+    # Final loss function
+    return loss_content
