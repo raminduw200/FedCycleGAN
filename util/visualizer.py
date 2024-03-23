@@ -7,7 +7,6 @@ from datetime import datetime
 from . import util, html
 from subprocess import Popen, PIPE
 
-
 try:
     import wandb
 except ImportError:
@@ -19,15 +18,17 @@ else:
     VisdomExceptionBase = ConnectionError
 
 
-def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, use_wandb=False):
+def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, use_wandb=False, metrics=None):
     """Save images to the disk.
 
     Parameters:
-        webpage (the HTML class) -- the HTML webpage class that stores these imaegs (see html.py for more details)
+        webpage (the HTML class) -- the HTML webpage class that stores these images (see html.py for more details)
         visuals (OrderedDict)    -- an ordered dictionary that stores (name, images (either tensor or numpy) ) pairs
         image_path (str)         -- the string is used to create image paths
         aspect_ratio (float)     -- the aspect ratio of saved images
         width (int)              -- the images will be resized to width x width
+        use_wandb (bool)         -- if specified, then log images to wandb
+        metrics (dict)           -- the metrics to be added as a row in the table
 
     This function will save images stored in 'visuals' to the HTML file specified by 'webpage'.
     """
@@ -48,7 +49,7 @@ def save_images(webpage, visuals, image_path, aspect_ratio=1.0, width=256, use_w
         links.append(image_name)
         if use_wandb:
             ims_dict[label] = wandb.Image(im)
-    webpage.add_images(ims, txts, links, width=width)
+    webpage.add_images(ims, txts, links, metrics=metrics, width=width)
     if use_wandb:
         wandb.log(ims_dict)
 
@@ -88,7 +89,8 @@ class Visualizer():
                 self.create_visdom_connections()
 
         if self.use_wandb:
-            self.wandb_run = wandb.init(project=self.wandb_project_name, name=opt.name, config=opt) if not wandb.run else wandb.run
+            self.wandb_run = wandb.init(project=self.wandb_project_name, name=opt.name,
+                                        config=opt) if not wandb.run else wandb.run
             self.wandb_run._label(repo='CycleGAN-and-pix2pix')
 
         if self.use_html:  # create an HTML object at <checkpoints_dir>/web/; images will be saved under <checkpoints_dir>/web/images/
@@ -123,7 +125,7 @@ class Visualizer():
         """
         if self.display_id > 0:  # show images in the browser using visdom
             ncols = self.ncols
-            if ncols > 0:        # show all the images in one visdom panel
+            if ncols > 0:  # show all the images in one visdom panel
                 ncols = min(ncols, len(visuals))
                 h, w = next(iter(visuals.values())).shape[:2]
                 table_css = """<style>
@@ -160,7 +162,7 @@ class Visualizer():
                 except VisdomExceptionBase:
                     self.create_visdom_connections()
 
-            else:     # show each image in a separate visdom panel;
+            else:  # show each image in a separate visdom panel;
                 idx = 1
                 try:
                     for label, image in visuals.items():
@@ -266,3 +268,17 @@ class Visualizer():
         print(message)
         with open(self.log_name, "a") as log_file:
             log_file.write('%s\n' % message)
+
+    @staticmethod
+    def plot_current_tensors(real_b, fake_b):
+        # compare images visually with metrics values
+        import matplotlib.pyplot as plt
+        from util.util import tensor2im
+        fig, axes = plt.subplots(1, 2)
+        axes[0].imshow(tensor2im(fake_b))
+        axes[0].set_title('Fake B')
+        axes[0].axis('off')
+        axes[1].imshow(tensor2im(real_b))
+        axes[1].set_title('Real A')
+        axes[1].axis('off')
+        plt.show()
