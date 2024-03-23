@@ -51,6 +51,8 @@ class CycleGANModel(BaseModel):
                                                                                    'smaller than the weight of the '
                                                                                    'reconstruction loss, please set '
                                                                                    'lambda_identity = 0.1')
+            parser.add_argument('--use_vgg_ssim_loss', action='store_true', help='use VGG19 loss and SSIM loss for '
+                                                                                 'training')
 
         return parser
 
@@ -63,8 +65,7 @@ class CycleGANModel(BaseModel):
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call
         # <BaseModel.get_current_losses>
-        self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B',
-                           'ssim_A', 'ssim_B', 'vgg_A', 'vgg_B']
+        self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B']
         # specify the images you want to save/display. The training/test scripts will call
         # <BaseModel.get_current_visuals>
         visual_names_A = ['real_A', 'fake_B', 'rec_A']
@@ -73,6 +74,11 @@ class CycleGANModel(BaseModel):
             # B) ad idt_A=G_A(B)
             visual_names_A.append('idt_B')
             visual_names_B.append('idt_A')
+        if self.isTrain and opt.use_vgg_ssim_loss:
+            visual_names_A.append('ssim_A')
+            visual_names_B.append('ssim_B')
+            visual_names_A.append('vgg_A')
+            visual_names_B.append('vgg_B')
 
         self.visual_names = visual_names_A + visual_names_B  # combine visualizations for A and B
         # specify the models you want to save to the disk. The training/test scripts will call
@@ -105,7 +111,8 @@ class CycleGANModel(BaseModel):
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)  # define GAN loss.
             self.criterionCycle = torch.nn.L1Loss()
             self.criterionIdt = torch.nn.L1Loss()
-            self.vgg19 = VGG19().to(self.device)  # VGG19 for perceptual loss
+            if opt.use_vgg_ssim_loss:
+                self.vgg19 = VGG19().to(self.device)  # VGG19 for perceptual loss
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
@@ -174,6 +181,7 @@ class CycleGANModel(BaseModel):
         lambda_idt = self.opt.lambda_identity
         lambda_A = self.opt.lambda_A
         lambda_B = self.opt.lambda_B
+        use_vgg_ssim_loss = self.opt.use_vgg_ssim_loss
         # Identity loss
         if lambda_idt > 0:
             # G_A should be identity if real_B is fed: ||G_A(B) - B||
@@ -186,6 +194,19 @@ class CycleGANModel(BaseModel):
             self.loss_idt_A = 0
             self.loss_idt_B = 0
 
+        if use_vgg_ssim_loss:
+            # SSIM loss
+            self.loss_ssim_A = ssim_loss(self.real_A, self.rec_A) * 2
+            self.loss_ssim_B = ssim_loss(self.real_B, self.rec_B) * 2
+            # VGG19 loss
+            self.loss_vgg_A = loss_fn_vgg_ssim(self.real_A, self.rec_A, self.vgg19) / 5
+            self.loss_vgg_B = loss_fn_vgg_ssim(self.real_B, self.rec_B, self.vgg19) / 7
+        else:
+            self.loss_ssim_A = 0
+            self.loss_ssim_B = 0
+            self.loss_vgg_A = 0
+            self.loss_vgg_B = 0
+
         # GAN loss D_A(G_A(A))
         self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_B), True)
         # GAN loss D_B(G_B(B))
@@ -194,12 +215,7 @@ class CycleGANModel(BaseModel):
         self.loss_cycle_A = self.criterionCycle(self.rec_A, self.real_A) * lambda_A
         # Backward cycle loss || G_A(G_B(B)) - B||
         self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
-        # SSIM loss ||
-        self.loss_ssim_A = ssim_loss(self.real_A, self.rec_A)
-        self.loss_ssim_B = ssim_loss(self.real_B, self.rec_B)
-        # VGG19 loss
-        self.loss_vgg_A = loss_fn_vgg_ssim(self.real_A, self.rec_A, self.vgg19) / 5
-        self.loss_vgg_B = loss_fn_vgg_ssim(self.real_B, self.rec_B, self.vgg19) / 7
+
         # combined loss and calculate gradients
         self.loss_G = (self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B +
                        self.loss_idt_A + self.loss_idt_B +
