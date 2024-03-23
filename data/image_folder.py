@@ -8,6 +8,7 @@ import torch.utils.data as data
 
 from PIL import Image
 import os
+from random import shuffle
 
 IMG_EXTENSIONS = [
     '.jpg', '.JPG', '.jpeg', '.JPEG',
@@ -23,8 +24,10 @@ def is_image_file(filename):
 def make_dataset(dir, max_dataset_size=float("inf")):
     images = []
     assert os.path.isdir(dir), '%s is not a valid directory' % dir
+    dir_walk = list(os.walk(dir))
+    shuffle(dir_walk[0][2])
 
-    for root, _, fnames in sorted(os.walk(dir)):
+    for root, _, fnames in dir_walk:
         for fname in fnames:
             if is_image_file(fname):
                 path = os.path.join(root, fname)

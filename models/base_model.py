@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 from . import networks
 from util.metrics import mae, psnr, ssim
 
-
 class BaseModel(ABC):
     """This class is an abstract base class (ABC) for models.
     To create a subclass, you need to implement the following five functions:
@@ -33,7 +32,14 @@ class BaseModel(ABC):
         self.opt = opt
         self.gpu_ids = opt.gpu_ids
         self.isTrain = opt.isTrain
-        self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if torch.cuda.is_available() else torch.device('mps')  # get device name: CPU or GPU
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda:{}'.format(self.gpu_ids[0]))
+        elif torch.backends.mps.is_available():
+            self.device = torch.device('mps')
+        else:
+            self.device = torch.device('cpu')
+        # self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if torch.cuda.is_available() else
+        # torch.device('mps')  # get device name: M1 GPU or CUDA GPU
         self.save_dir = os.path.join(opt.checkpoints_dir, opt.name, f"client_{opt.cid}")  # save all the
         # checkpoints to save_dir
         if opt.preprocess != 'scale_width':  # with [scale_width], input images might have different sizes,
@@ -87,7 +93,7 @@ class BaseModel(ABC):
         if self.isTrain:
             self.schedulers = [networks.get_scheduler(optimizer, opt) for optimizer in self.optimizers]
         if not self.isTrain or opt.continue_train:
-            load_suffix = 'iter_%d' % opt.load_iter if opt.load_iter > 0 else opt.epoch
+            load_suffix = '%d' % opt.load_iter if opt.load_iter > 0 else opt.epoch
             self.load_networks(load_suffix)
         self.print_networks(opt.verbose)
 
@@ -159,20 +165,27 @@ class BaseModel(ABC):
                 if len(self.gpu_ids) > 0 and torch.cuda.is_available():
                     torch.save(net.module.cpu().state_dict(), save_path)
                     net.cuda(self.gpu_ids[0])
-                elif torch.device('mps'):
+                elif torch.backends.mps.is_available():
                     torch.save(net.cpu().state_dict(), save_path)
                     net.to('mps')
+                else:
+                    torch.save(net.cpu().state_dict(), save_path)
 
     def get_eval_metrics(self):
         """Return PSNR, SSIM and MAE"""
+        fake_b = getattr(self, 'fake_B')
         real_b = getattr(self, 'real_B')
-        fake_a = getattr(self, 'fake_A')
 
-        mae_value = mae(real_b, fake_a)
-        psnr_value = psnr(real_b, fake_a)
-        ssim_value = ssim(real_b, fake_a)
-        result = {"MAE": f"{mae_value:.5f}", "PSNR": f"{psnr_value:.5f}", "SSIM": f"{ssim_value:.5f}", "comparison": f"real_A -> fake_B"}
-        print(f"MAE: {mae_value:.5f}, PSNR: {psnr_value:.5f}, SSIM: {ssim_value:.5f}")
+        # # Reshape the image to match the model's input size
+        # real_b = torch.nn.functional.interpolate(real_b, size=(2976, 3968), mode='bilinear', align_corners=False)
+        # fake_b = torch.nn.functional.interpolate(fake_b, size=(2976, 3968), mode='bilinear', align_corners=False)
+        mae_value = mae(real_b, fake_b).item()
+        psnr_value = psnr(real_b, fake_b).item()
+        ssim_value = ssim(real_b, fake_b).item()
+        result = {"MAE": round(mae_value, 5), "PSNR": round(psnr_value, 5), "SSIM": round(ssim_value, 5)}
+
+        # from util.visualizer import Visualizer
+        # Visualizer.plot_current_tensors(real_b, fake_b)
 
         return result
 

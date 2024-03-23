@@ -74,6 +74,7 @@ class FlwrClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         self.set_parameters(parameters)
+        self.model.save_networks("FL-Round")
         total_iters = 0  # the total number of training iterations
         for epoch in range(self.opt.epoch_count,
                            self.opt.n_epochs + self.opt.n_epochs_decay + 1):  # outer loop for different epochs;

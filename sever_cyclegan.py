@@ -1,21 +1,25 @@
 import flwr as fl
-from models import create_model
-from options.train_options import TrainOptions
+
+fl.common.logger.configure(identifier="myFlowerExperiment", filename="sever_logs.txt")
+
+strategy = fl.server.strategy.FedAvg(
+    min_fit_clients=2,
+    min_available_clients=2,
+    #     initial_parameters=server.get_parameters(),
+)
+
+fl.server.start_server(
+    server_address="0.0.0.0:8080",
+    strategy=strategy,
+    config=fl.server.ServerConfig(num_rounds=9)
+)
+
+# from models import create_model
+# from options.train_options import TrainOptions
 
 # opt = TrainOptions().parse()  # get training options
 # server = create_model(opt, id=0, is_client=False)  # create a model given opt.model and other options
 # server.setup(opt)
-
-
-strategy = fl.server.strategy.FedAvg(
-#     initial_parameters=server.get_parameters(),
-)
-
-fl.server.start_server(
-    server_address="localhost:8080",
-    strategy=strategy,
-    config=fl.server.ServerConfig(num_rounds=2)
-)
 
 
 # strategy = fl.server.strategy.FedAvg(

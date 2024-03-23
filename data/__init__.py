@@ -81,7 +81,7 @@ def prepare_dataset(opt):
 class CustomDatasetDataLoader:
     """Wrapper class of Dataset class that performs multi-threaded data loading"""
 
-    def __init__(self, opt, cid=1):
+    def __init__(self, opt, cid=0):
         """Initialize this class
 
         Step 1: create a dataset instance given the name [dataset_mode]
