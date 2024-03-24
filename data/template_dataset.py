@@ -33,7 +33,7 @@ class TemplateDataset(BaseDataset):
         parser.set_defaults(max_dataset_size=10, new_dataset_option=2.0)  # specify dataset-specific default values
         return parser
 
-    def __init__(self, opt):
+    def __init__(self, opt, a_paths, b_paths):
         """Initialize this dataset class.
 
         Parameters:
@@ -45,7 +45,7 @@ class TemplateDataset(BaseDataset):
         - define the image transformation.
         """
         # save the option and dataset root
-        BaseDataset.__init__(self, opt)
+        BaseDataset.__init__(self, opt, a_paths, b_paths)
         # get the image paths of your dataset;
         self.image_paths = []  # You can call sorted(make_dataset(self.root, opt.max_dataset_size)) to get all the image paths under the directory self.root
         # define the default transform function. You can use <base_dataset.get_transform>; You can also define your custom transform function

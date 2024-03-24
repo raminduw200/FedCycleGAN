@@ -68,13 +68,16 @@ def prepare_dataset(opt):
     dir_B = os.path.join(opt.dataroot, opt.phase + 'B')  # create a path '/path/to/data/trainB'
 
     A_paths = sorted(make_dataset(dir_A, opt.max_dataset_size))  # load images from '/path/to/data/trainA'
-    B_paths = sorted(make_dataset(dir_B, opt.max_dataset_size))  # load images from '/path/to/data/trainB'
+    B_paths = sorted(make_dataset(dir_B, opt.max_dataset_size))  # load images from     '/path/to/data/trainB'
 
-    num_images = len(A_paths) // opt.client_count
-    # partition_len = [num_images] * opt.num_partitions
-    A_paths_lists = [A_paths[i:i + num_images] for i in range(0, len(A_paths), num_images)]
-    B_paths_lists = [B_paths[i:i + num_images] for i in range(0, len(B_paths), num_images)]
-
+    if opt.isTrain:
+        num_images = len(A_paths) // opt.client_count
+        # partition_len = [num_images] * opt.num_partitions
+        A_paths_lists = [A_paths[i:i + num_images] for i in range(0, len(A_paths), num_images)]
+        B_paths_lists = [B_paths[i:i + num_images] for i in range(0, len(B_paths), num_images)]
+    else:
+        A_paths_lists = [A_paths]
+        B_paths_lists = [B_paths]
     return A_paths_lists, B_paths_lists
 
 

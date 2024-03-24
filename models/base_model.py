@@ -177,8 +177,7 @@ class BaseModel(ABC):
         real_b = getattr(self, 'real_B')
 
         # # Reshape the image to match the model's input size
-        # real_b = torch.nn.functional.interpolate(real_b, size=(2976, 3968), mode='bilinear', align_corners=False)
-        # fake_b = torch.nn.functional.interpolate(fake_b, size=(2976, 3968), mode='bilinear', align_corners=False)
+        # real_b = torch.nn.functional.interpolate(real_b, size=(224, 224), mode='bilinear', align_corners=False)
         mae_value = mae(real_b, fake_b).item()
         psnr_value = psnr(real_b, fake_b).item()
         ssim_value = ssim(real_b, fake_b).item()
