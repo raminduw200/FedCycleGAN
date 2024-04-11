@@ -1,23 +1,22 @@
-"""General-purpose training script for image-to-image translation.
-
-This script works for various models (with option '--model': e.g., pix2pix, cyclegan, colorization) and
-different datasets (with option '--dataset_mode': e.g., aligned, unaligned, single, colorization).
-You need to specify the dataset ('--dataroot'), experiment name ('--name'), and model ('--model').
-
-It first creates model, dataset, and visualizer given the option.
-It then does standard network training. During the training, it also visualize/save the images, print/save the loss plot, and save models.
-The script supports continue/resume training. Use '--continue_train' to resume your previous training.
-
-Example:
-    Train a CycleGAN model:
-        python train.py --dataroot ./datasets/maps --name maps_cyclegan --model cycle_gan
-    Train a pix2pix model:
-        python train.py --dataroot ./datasets/facades --name facades_pix2pix --model pix2pix --direction BtoA
-
-See options/base_options.py and options/train_options.py for more training options.
-See training and test tips at: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/docs/tips.md
-See frequently asked questions at: https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/docs/qa.md
 """
+This script defines a Flower Client for federated learning using CycleGAN. The FlwrClient class inherits from
+fl.client.NumPyClient and implements the required methods for federated learning, including get_parameters,
+set_parameters, fit, and evaluate.
+
+The FlwrClient class is initialized with a client id, options, and a dataloader. It sets up the CycleGAN model and a
+visualizer for displaying and saving images and plots.
+
+The get_parameters method retrieves the parameters of the CycleGAN model's generators and discriminators. The
+set_parameters method sets the parameters of the CycleGAN model's generators and discriminators.
+
+The fit method trains the CycleGAN model for a specified number of epochs, updating the model's parameters,
+calculating loss functions, getting gradients, and updating network weights. It also saves the model's state at
+specified intervals.
+
+The evaluate method is a placeholder and currently returns a fixed accuracy and loss.
+
+The generate_client_fn function returns a function that can be used by the VirtualClientEngine to spawn a FlwrClient
+with a specified client id."""
 import time
 from models import create_model
 from util.visualizer import Visualizer
