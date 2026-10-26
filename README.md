@@ -1,10 +1,10 @@
 # FedCycleGAN
 
-This repository implements a federated learning extension of CycleGAN for image-to-image translation, inspired by the research paper "Enhancing Mobile Photography with Federated Learning-Enabled CycleGAN." The project demonstrates how a CycleGAN model can be trained across multiple distributed clients while preserving client data locality and aggregating a shared central model.
+This repository implements a federated learning extension of CycleGAN for image-to-image translation, implementation of the research paper "FL-CycleGAN: Enhancing Mobile Photography with Federated Learning-Enabled CycleGAN." The project demonstrates how a CycleGAN model can be trained across multiple distributed clients while preserving client data locality and aggregating a shared central model. The initial name was suggested as FedCycleGAN and later renamed this FL-CycleGAN due existence of another model called FedCycleGAN.
 
 ## Overview
 
-FedCycleGAN adapts the CycleGAN architecture to a federated training workflow. Each client trains local CycleGAN models on its own image dataset, then sends model parameters to a central server for aggregation. The aggregated server model is redistributed to clients for the next federated round.
+FL-CycleGAN adapts the CycleGAN architecture to a federated training workflow. Each client trains local CycleGAN models on its own image dataset, then sends model parameters to a central server for aggregation. The aggregated server model is redistributed to clients for the next federated round.
 
 This approach is designed for mobile photography enhancement scenarios where training data is distributed across devices and direct data sharing is undesirable.
 
